@@ -1,0 +1,5 @@
+a.2
+The first scatter plot "Wins and Nominations vs IMDb Rating" is better at separating the classes because the vast majority of "Bad Rating" points are aggregated to low-values of y axis and as a result there is a more clear separation.
+
+c.
+The usefulness of logarithmic and root scales in visualization is to include numbers from different orders of magnitude without small values being compressed into the bottom of the graph. Datasets with skewness towards large values are transformed and the presence of outliers in visualization is reduced.

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+.axis path,
+
+.axis line {
+        fill: none;
+        stroke: white;
+        shape-rendering: crispEdges;
+        }
+
+.bars rect {
+  fill: #A9A9A9;
+}
+
+.axis text {
+font: 18.5px sans-serif;
+stroke: #A9A9A9;
+ }
+
+</style>
+</head>
+<body>
+<div class = "container">
+<div id="bar_chart", align = "left"></div>
+<div id="line_chart_id"></div>
+</div>
+
+<script src="../lib/d3.v3.min.js"></script>
+<script>
+
+var data = [{city: 'San Antonio', population_2012: 1383505, growth: {year_2013:25405, year_2014:26644 , year_2015:28593 , year_2016:23591 , year_2017:24208}},
+{city: 'New York', population_2012: 8383504, growth: {year_2013:75138 , year_2014:62493 , year_2015:61324 , year_2016:32967 , year_2017:7272}},
+{city: 'Chicago', population_2012: 2717989, growth: {year_2013:6493 , year_2014:2051 , year_2015:-1379 , year_2016:-4879 , year_2017:-3825}},
+{city: 'Los Angeles', population_2012: 3859267, growth:{year_2013:32516 , year_2014:30885 , year_2015:30791 , year_2016:27657 , year_2017:18643}},
+{city: 'Phoenix', population_2012: 1495880, growth: {year_2013:25302 , year_2014:26547 , year_2015:27310 , year_2016:27003 , year_2017:24036}}
+];
+
+
+//Sorting based on Cumulative population
+data = data.sort(function (first, second) {
+    return d3.ascending(first.population_2012 + first.growth.year_2013 + first.growth.year_2014 + first.growth.year_2015 + first.growth.year_2016 + first.growth.year_2017, second.population_2012 + second.growth.year_2013 + second.growth.year_2014 + second.growth.year_2015 + second.growth.year_2016 + second.growth.year_2017);
+})
+//Reference https://bl.ocks.org/hrecht/f84012ee860cb4da66331f18d588eee3
+
+
+var margin = {top: 60, right: 10, bottom: 10, left: 110},
+    width = 850 - margin.left - margin.right,
+    height = 400 - margin.top - margin.bottom;
+
+//xScale, yScale
+var xScale = d3.scale.linear()
+        .domain([0, d3.max(data, function(d){
+         return d.population_2012 + d.growth.year_2013 + d.growth.year_2014 + d.growth.year_2015 + d.growth.year_2016 + d.growth.year_2017; })])
+        .range([0, width]);
+
+
+var yScale = d3.scale.ordinal()
+        .domain(data.map(function(d){
+            return d.city}))
+        .rangeBands([height, 0]);
+
+//yAxis
+var yAxis = d3.svg.axis()
+            .scale(yScale)
+            .orient("left");
+
+//SVG
+var svg = d3.select("#bar_chart").append("svg")
+            .attr("width", width + margin.left + margin.right)//svg width
+            .attr("height", height + margin.top + margin.bottom )// svg height
+            .append("g")
+            .attr("transform", "translate(" + (margin.left) + "," + (margin.top) + ")");
+
+//Y Axis
+svg.append("g")
+   .attr("class", "axis")
+   .call(yAxis);
+
+//Graph Bars
+var graph_bars = svg.selectAll(".bars")
+   .data(data)
+   .enter()
+   .append("g")
+   .attr("class", "bars");
+
+graph_bars.append("rect")
+   .attr("x", 0)
+   .attr("y", function(d){ return yScale(d.city) + margin.bottom; })
+   .attr("width", function(d){ return xScale(d.population_2012 + d.growth.year_2013 + d.growth.year_2014 + d.growth.year_2015 + d.growth.year_2016 + d.growth.year_2017); })
+   .attr("height", 0.75*yScale.rangeBand())
+   .on("mouseover",line_chart)
+   .on("mouseout", mouseout_);//https://stackoverflow.com/questions/21235173/d3-hover-on-legend-to-highlight-the-respective-data
+
+
+graph_bars.append("text")
+    .attr("x", 12)
+    .attr("y", function(d) {
+        return yScale(d.city);
+    })
+    .attr("dy", "2.2em")
+    .style("font-size", "18.5px")
+    .text(function(d) { return d3.format(",")(d.population_2012 + d.growth.year_2013 + d.growth.year_2014 + d.growth.year_2015 + d.growth.year_2016 + d.growth.year_2017); })
+    .style("fill", "white");
+
+
+    //Line Chart Function
+    function line_chart(d){
+        d3.select(this).style("fill","#87CEFA");
+
+        //Margin, width, height
+        var margin = {top: 30, right: 20, bottom: 100, left: 50},
+        width = 400 - margin.left - margin.right,
+        height = 350 - margin.top - margin.bottom;
+
+
+        // Percentage Change
+        line_points =
+                [
+            {pctchange:d.growth.year_2013/(d.population_2012)*100, year:2013},
+            {pctchange:d.growth.year_2014/(d.population_2012 +d.growth.year_2013)*100, year:2014},
+            {pctchange:d.growth.year_2015/(d.population_2012 +d.growth.year_2013 +d.growth.year_2014)*100, year:2015},
+            {pctchange:d.growth.year_2016/(d.population_2012 +d.growth.year_2013 +d.growth.year_2014 + d.growth.year_2015)*100, year:2016},
+            {pctchange:d.growth.year_2017/(d.population_2012 +d.growth.year_2013 +d.growth.year_2014 + d.growth.year_2015 + d.growth.year_2016)*100, year:2017}
+            ]
+
+
+        var line_xScale = d3.scale.ordinal()
+                                  .domain(line_points.map(function(d){ return d.year;}))
+                                  .rangePoints([0,width]);
+
+
+        var line_yScale = d3.scale.linear()
+                                .domain([d3.min(line_points, function(d){return d.pctchange}),d3.max(line_points, function(d){return d.pctchange})])
+                                .range([height,0]);
+
+
+        //Line Xaxis
+        var line_xAxis = d3.svg.axis()
+            .scale(line_xScale)
+            .orient("bottom")
+
+        //Line Yaxis
+        var line_yAxis = d3.svg.axis()
+            .scale(line_yScale)
+            .ticks(5)
+            .orient("left")
+
+
+        var svg2= d3.select("#line_chart_id").append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .attr("transform","translate("+(margin.left + 2*width + 10*margin.right)+ ","+(-1.5*height + 2.5*margin.top - margin.bottom)+")");
+        //Reference https://bl.ocks.org/mbostock/3883245
+
+        var g_element= svg2.append("g")
+                           .attr("transform","translate("+margin.left+ ","+margin.top+")")
+
+        //Line
+        var line = d3.svg.line()
+                        .x(function(d) { return line_xScale(d.year); })
+                        .y(function(d) { return line_yScale(+d.pctchange); });
+        //Reference http://jsfiddle.net/fiatjaf/aK6DP/
+
+        g_element.append("path")
+                .data([line_points])
+                .attr("d",line)
+                .attr("stroke","DeepSkyBlue")
+                .attr("fill","white");
+
+
+        //X Axis
+        g_element.append("g")
+          .attr("transform", "translate(0," + height + ")")
+          .style("stroke","black")
+          .style("fill", "none")
+          .call(line_xAxis);
+
+        //Y Axis
+        g_element.append("g")
+          .style("stroke","black")
+          .style("fill", "none")
+          .call(line_yAxis);
+
+        //X Label
+         g_element.append("text")
+            .attr("x", width-20)
+            .attr("y",height+ 1.3*margin.top)
+            .attr("font-size", "21px")
+            .text("Year");
+
+        //Y Label
+        g_element.append("text")
+            .attr("x", -margin.left)
+            .attr("y", -0.5*margin.top)
+            .attr("font-size", "21px")
+            .text("Pct %");
+
+    }
+
+
+    function mouseout_(d){
+        d3.select(this).style("fill","#A9A9A9");
+        document.getElementById("line_chart_id").innerHTML = ''; //https://stackoverflow.com/questions/3450593/how-do-i-clear-the-content-of-a-div-using-javascript
+    }
+
+
+
+//Reference https://bl.ocks.org/hrecht/f84012ee860cb4da66331f18d588eee3
+//http://jsfiddle.net/C6SSj/71/
+
+  </script>
+</body>
+</html>

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <script src="../lib/d3.v3.min.js"></script>
+        <style type="text/css">
+        .axis path,
+        .axis line {
+        fill: none;
+        stroke: black;
+        shape-rendering: crispEdges;
+        }
+        .pagebreak { page-break-before: always; }
+    </style>
+    </head>
+    <body>
+    <div id="graph1"></div>
+    <div class="pagebreak"> </div>
+    <div id="graph2"></div>
+    <div class="pagebreak"> </div>
+    <div id="graph3"></div>
+    <div class="pagebreak"> </div>
+    <div id="graph4"></div>
+    <div class="pagebreak"> </div>
+    <div id="graph5"></div>
+    <div class="pagebreak"> </div>
+  <script type="text/javascript">
+
+  make_scatter_plot(1,"#graph1") //Referance https://stackoverflow.com/questions/41940439/display-multiple-d3-js-charts-in-a-single-html-page
+  make_scatter_plot(2,"#graph2")
+  make_scatter_plot(3,"#graph3")
+  make_scatter_plot(4,"#graph4")
+  make_scatter_plot(5,"#graph5")
+
+
+  function make_scatter_plot(case_number, graph_number){
+          var y_axis_title,x_axis_title,graph_title ;
+          var ratings = ["good rating","bad rating"];
+          var legend_shapes = ["cross", "circles"];
+          var stroke_color = ["blue","red"];
+
+
+          //Read data from csv
+          d3.csv("movies.csv", function(dataset) {// Parsing Function
+            dataset.forEach(function(d) { // Assigning function
+            //X,Y,Z depending on case_number
+            if (case_number == 1){
+              d["x"] = +d.imdbRating; //convert to number
+              d["y"] = +d.WinsNoms;
+              d["z"] = +d.IsGoodRating; // Good rating or Bad Rating
+              graph_title = "Wins+Nominations vs. IMDb Rating";
+              x_axis_title = "IMDb Rating";
+              y_axis_title = "Wins+Noms";
+            }
+            else if (case_number == 2){
+              d["x"] = +d.imdbRating; //convert to number
+              d["y"] = +d.Budget;
+              d["z"] = +d.IsGoodRating;
+              graph_title = "Budget vs. IMDb Rating";
+              x_axis_title = "IMDb Rating";
+              y_axis_title = "Budget";
+            }
+            else if (case_number == 3){
+              d["x"] = +d.imdbRating; //convert to number
+              d["y"] = +d.imdbVotes;
+              d["z"] = +d.IsGoodRating;
+              d["size"] = +d.WinsNoms;
+              graph_title = "Votes vs. IMDb Rating";
+              x_axis_title = "IMDb Rating";
+              y_axis_title = "IMDb Votes";
+            }
+            else if (case_number == 4){
+              d["x"] = +d.imdbRating; //convert to number
+              d["y"] = +d.WinsNoms;
+              d["z"] = +d.IsGoodRating; // Good rating or Bad Rating
+              graph_title = "Wins+Nominations (square-root-scaled) vs. IMDb Rating";
+              x_axis_title = "IMDb Rating";
+              y_axis_title = "Wins+Noms";
+            }
+            else if (case_number == 5){
+              d["x"] = +d.imdbRating; //convert to number
+              d["y"] = +d.WinsNoms;
+              d["z"] = +d.IsGoodRating; // Good rating or Bad Rating
+              graph_title = "Wins+Nominations (log-scaled) vs. IMDb Rating";
+              x_axis_title = "IMDb Rating";
+              y_axis_title = "Wins+Noms";
+            }
+
+
+          }
+          );
+          //Referance http://learnjsdata.com/read_data.html
+
+          // Width, Height, Margin
+          var w = 840;
+          var h = 600;
+          var margin = 100;
+
+
+          //xScale, Yscale, Rscale
+          var xScale = d3.scale.linear()
+                         .domain([0, d3.max(dataset, function(d) { return d["x"]; })])
+                         .range([margin, w - margin * 2]);
+
+          //choose Yscale depending on case_number
+          if (case_number == 1 || case_number == 2 || case_number == 3){
+              var yScale = d3.scale.linear()
+                 .domain([0, d3.max(dataset, function(d) { return d["y"]; })])
+                 .range([h - margin, margin]);
+          }
+          else if(case_number == 4){
+              var yScale = d3.scale.sqrt()
+                 .domain([d3.min(dataset, function(d) { return d["y"]; }), d3.max(dataset, function(d) { return d["y"]; })])
+                 .range([h - margin, margin]);
+          }
+          else if(case_number ==5){
+              var yScale = d3.scale.log()
+                 .domain([0.1, d3.max(dataset, function(d) { return d["y"]; })])
+                 .range([h - margin, margin]);
+          };
+
+          var rScale = d3.scale.linear() //
+                      .domain([0, d3.max(dataset, function(d) { return d["size"]; })])
+                      .range([30, 300]);
+
+          //X axis
+          var xAxis = d3.svg.axis()
+                  .scale(xScale)
+                  .orient("bottom");
+
+          //Y axis
+          var yAxis = d3.svg.axis()
+                  .scale(yScale)
+                  .orient("left");
+
+          //SVG creation with w,h
+          var svg = d3.select(graph_number)
+                  .append("svg")
+                  .attr("width", w)
+                  .attr("height", h);
+
+
+           //Create plot_symbols
+           if (case_number==1 || case_number == 2 || case_number == 4 || case_number == 5){
+              var plot_symbols = d3.svg.symbol().type(function (d)
+              {
+               if (d["z"] == 1){return "cross"}
+               else{return "circles"}
+              })
+              .size(20);
+           }
+           else if(case_number == 3){
+            var plot_symbols = d3.svg.symbol().type(function (d)
+              {
+               if (d["z"] == 1){return "cross"}
+               else{return "circles"}
+              })
+              .size(function(d){return rScale(d["size"]);});
+           }
+
+
+           //Draw Symbols
+           svg.selectAll(".point")
+                .data(dataset)
+                .enter()
+                .append("path")
+                .attr("d", plot_symbols)
+                .attr("transform",function(d){
+                      return "translate("+xScale(d["x"])+","+(isNaN(yScale(d["y"]))? h-margin: yScale(d["y"]))+")";
+                      })
+                .attr('fill','none')
+                .attr('stroke',function(d){
+                    if (d["z"] == 0)
+                    {
+                      return "red"
+                    }
+                    else return "blue"})
+
+
+          //Create X axis
+          svg.append("g")
+             .attr("class", "axis") //Assign "axis" class
+             .attr("transform", "translate(0," + (h - margin) + ")")
+             .call(xAxis)
+            .append("text")//X axis Title
+             .attr("x", w-1.1*margin)
+             .attr("y", -6)
+             .style("text-anchor", "end")
+             .text(x_axis_title);
+          //Referance http://bl.ocks.org/weiglemc/6185069
+
+          //Create Y axis
+          svg.append("g")
+             .attr("class", "axis") //Assign "axis" class
+             .attr("transform", "translate(" + margin + ",0)")
+             .call(yAxis) //Y axis Title
+            .append("text")
+             .attr("transform", "rotate(-90)")
+             .attr("x", -margin)
+             .attr("y", ".90em")
+             .style("text-anchor", "end")
+             .text(y_axis_title);
+
+
+          //Rectangle for Legend
+          svg.append('rect')
+            .attr('x',615)
+            .attr('y',1)
+            .attr('height',40)
+            .attr('width',110)
+            .attr('stroke','black')
+            .attr('fill','none')
+
+          // Legend
+          var legend = svg.selectAll(".legend")
+                          .data(ratings)
+                          .enter()
+                          .append("g")
+                          .attr("class", "legend")
+                          .attr("transform", function(d, i) { return "translate(0," + i * 19 + ")"; });
+          //Referance http://bl.ocks.org/weiglemc/6185069
+
+          //Legend shapes
+          legend.append("path")
+                .attr("d", d3.svg.symbol().type( function(d, i) {return legend_shapes[i];} ))
+                .attr("transform", "translate(" + (w - 2*margin-10)  +", 10)")
+                .style("stroke",function(d,i){
+                          return stroke_color[i]})
+                .style("fill", "none");
+          //Referance http://bl.ocks.org/weiglemc/6185069
+
+          // Legend text
+          legend.append("text")
+                .attr("x", w-2*margin)
+                .attr("y", 10)
+                .attr("dy", ".35em")
+                .style("text-anchor", "start")
+                .text(function(d) { return d;});
+          //Referance http://bl.ocks.org/weiglemc/6185069
+
+          // Graph Title
+         svg.append("text")
+            .attr("x", (w-margin)/2)
+            .attr("y", 13)
+            .attr("font-weight", "bold")
+            .attr("text-anchor", "middle")
+            .style("font-size", "19px")
+            .text(graph_title);
+
+  // Referance: Scott Murray Interactive Vizualization for the Web
+  }
+  )}
+
+          </script>
+    </body>
+</html>

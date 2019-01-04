@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+.axis path,
+
+.counties {
+  fill: none;
+  stroke: white;
+}
+
+div.tooltip {
+    position: absolute;
+    font: 12px sans-serif;
+    background: #E8BFA0;
+    padding: 7px 10px;
+}
+
+div.tooltip p {
+  margin: 3px;
+}
+
+#header_tile {
+  text-align: center;
+}
+
+#choropleth_area svg {
+  margin: 0 auto;
+  display: block;
+}
+
+</style>
+</head>
+<body>
+<div >
+   <h2 id= "header_tile">Education Statistics</h2>
+</div>
+<div id= "choropleth_area"></div>
+
+<script src="../lib/d3.v3.min.js"></script>
+<script src="../lib/d3.tip.v0.6.3.js"></script>
+<script src="../lib/d3-queue.v3.min.js"></script>
+<script src='../lib/topojson.v1.min.js'></script>
+<script>
+
+
+//D3 Queue https://github.com/d3/d3-queue
+var q = d3.queue();
+q.defer(d3.csv,"education.csv");
+q.defer(d3.csv,"education_details.csv")
+q.defer(d3.json,"us.json");
+q.await(files_loaded);
+
+
+
+function files_loaded(error, education, education_details, us){
+    if (error) throw error;
+    var margin = {top: 100, right: 190, bottom: 80, left: 190};
+    var width = 1300 - margin.left - margin.right,
+        height = 750 - margin.top - margin.bottom;
+
+    var path = d3.geo.path();
+
+
+    var colorrange = ['#f7fbff','#deebf7','#c6dbef','#9ecae1','#6baed6','#4292c6','#2171b5','#08519c','#08306b',"#062655"];//Colorbrewer 9 classes Single Hue + 1 added
+
+    var domain_color = [0,10,20,30,40,50,60,70,80,90];
+
+    var svg = d3.select("#choropleth_area").append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom);
+
+    var chloro_colorScale = d3.scale.threshold()
+                                    .domain(domain_color)
+                                    .range(colorrange);
+
+    education_data =[]
+    education_details_data = []
+
+    education.forEach(function(row){
+        education_data.push({
+            state_ : row.State,
+            id_: +row["id"],
+            name_: row["name"],
+            percent_educated_ :+row.percent_educated
+
+        })
+    })
+
+    education_details.forEach(function(row){
+        education_details_data.push({
+            high_school_ : row.high_school,
+            id_: +row["id"],
+            middle_school_or_lower_: row.middle_school_or_lower,
+            qualified_professionals_ : row.qualified_professionals
+
+        })
+    })
+
+    var g_element = svg.append("g")
+                       .attr("transform", "translate("+margin.left+", "+margin.top+")");
+
+
+    // Legend for Color Values (Q4 Code)
+    var legend = g_element.selectAll(".legend")
+                    .data((domain_color), function(d) { return d; })
+                    .enter()
+                    .append("g")
+                    .attr("class", "legend")
+                    .attr("transform", function(d, i) { return "translate(" + (4.9*margin.right) + "," + (margin.top + i*30 ) + ")"; });
+
+
+    //Rectangles of Legend with Colors
+    legend.append("rect")
+              .attr("width", 30)
+              .attr("height", 30)
+              .style("fill", function(d,i){return colorrange[i];});
+
+    //Numbers for Legend
+    legend.append("text")
+      .attr("dx", "+2.3em")
+      .attr("dy", "1.3em")
+      .text(function(d){return Math.round(d)+"%";});
+
+
+  // Tooltip https://github.com/Caged/d3-tip
+  var tip= d3.tip().attr('class', 'tooltip').html(function(d){
+
+      var ccounty_ = education_data[education_data.findIndex(i => (i.id_ == d.id))].name_
+
+      var percentage_educated = education_data[education_data.findIndex(i => (i.id_ == d.id))].percent_educated_+'%'
+
+      var qualified_proff = education_details_data[education_details_data.findIndex(i => (i.id_ == d.id))].qualified_professionals_
+
+      var high_school_grads =  education_details_data[education_details_data.findIndex(i => (i.id_ == d.id))].high_school_
+
+      var middle_school_grads = education_details_data[education_details_data.findIndex(i => (i.id_ == d.id))].middle_school_or_lower_
+
+
+       return "<p>County: "+ccounty_+"</p><p>Percentage Educated: " +percentage_educated+"</p><p>Qualified Professionals: "+qualified_proff +"</p><p>High school graduates: "+high_school_grads+"</p><p>Middle school or lower graduates: "+middle_school_grads+"</p>"
+    }
+
+    );
+    //Offset tip for flickering
+    tip.offset([-13, 0])
+
+    //Call Tooltip
+    g_element.call(tip);
+
+    //Counties + Fill
+    g_element.append("g")
+        .attr("class", "counties")
+        .selectAll("path")
+        .data(topojson.feature(us, us.objects.counties).features)
+        .enter()
+        .append("path")
+        .attr("d", path)
+        .attr('fill',function(d){
+          if (education_data.findIndex(i => (i.id_ == d.id)) != -1){
+            return chloro_colorScale(education_data[education_data.findIndex(i => (i.id_ == d.id))].percent_educated_)
+            }
+          else return chloro_colorScale(0)
+        })
+        .on('mouseover',tip.show)
+        .on('mouseout',tip.hide)
+        //Reference https://bl.ocks.org/mbostock/4060606
+
+  }
+
+
+//Reference http://bl.ocks.org/stevenae/8362841
+</script>
+</body>
+</html>
+

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+.axis path,
+
+.axis line {
+        fill: none;
+        stroke: white;
+        shape-rendering: crispEdges;
+        }
+
+</style>
+</head>
+<body>
+<div id = "header_tile" align = "center"></div>
+<div id = "value_input" align = "center"></div>
+<div id = "heatmap1" align = "center"></div>
+<script src="../lib/d3.v3.min.js"></script>
+<script type="text/javascript">
+
+//Function for creating heatmap, input argument (str) Name of the House
+function make_heatmap(whichhouse){
+  //Define Margin, Width, Height
+  var margin = {top: 50, right: 100, bottom: 215, left: 150},
+      width = 700 - margin.left - margin.right,
+      height = 700 - margin.top - margin.bottom;
+
+
+  //Define Colors from colorbrewer
+  var heatmap_colors = ['#fff7f3','#fde0dd','#fcc5c0','#fa9fb5','#f768a1','#dd3497','#ae017e','#7a0177','#49006a'];
+
+  var numberofcolors = heatmap_colors.length;//9
+
+
+  var Booknames_for_y_domain = [];
+  var SpellTypes_for_x_domain = [];
+  var data = [];
+
+  d3.csv('heatmap.csv', function ( dataset ) {
+    //Filter for the selected house provided by the user
+    var specifichouse_data = dataset.filter(function (d){
+        return d.House == whichhouse
+    })
+
+
+    //Loop through the dataset of each specific house
+    specifichouse_data.forEach(function(row){
+        for (var bookname in row){
+            if(bookname != "SpellType" && bookname!= "House"){
+                data.push({
+                    book:bookname,
+                    SpellType: row.SpellType,
+                    values:+row[bookname]
+                })
+
+                if(Booknames_for_y_domain.indexOf(bookname) == -1){
+                  Booknames_for_y_domain.push(bookname)
+
+                }
+
+                if(SpellTypes_for_x_domain.indexOf(row.SpellType) == -1){
+                  SpellTypes_for_x_domain.push(row.SpellType)
+
+                }
+
+            }
+        }
+    })
+
+    //Printing for Checks
+    //console.log("Bookname",Booknames_for_y_domain)
+    //console.log("SpellType", SpellTypes_for_x_domain)
+    //console.log("data",data)
+
+    //xScale,yScale, ColorScale
+    var xScale = d3.scale.ordinal()
+        .domain(SpellTypes_for_x_domain.sort()) //SpellTypes Sorted
+        .rangeBands([0, width]);
+
+    var yScale = d3.scale.ordinal()
+        .domain(Booknames_for_y_domain)
+        .rangeBands([0, height]);
+
+    //Function to calculcate percentiles https://gist.github.com/IceCreamYou/6ffa1b18c4c8f6aeaad2
+    function percentile(arr, p) {
+      if (arr.length === 0) return 0;
+      if (typeof p !== 'number') throw new TypeError('p must be a number');
+      if (p <= 0) return arr[0];
+      if (p >= 1) return arr[arr.length - 1];
+
+      arr.sort(function (a, b) { return a - b; });
+      var index = (arr.length - 1) * p
+          lower = Math.floor(index),
+          upper = lower + 1,
+          weight = index % 1;
+
+      if (upper >= arr.length) return arr[lower];
+      return arr[lower] * (1 - weight) + arr[upper] * weight;
+      }
+
+    //All values of the Heatmap
+    all_values_of_inside_heatmap = Object.keys(data).map(k => data[k].values);
+
+    domain_of_colors = [];
+    //Find the threshholds for categorizing colors by taking percentiles of all values of inside the heatmap
+    for (step = 1; step < numberofcolors; step++) {
+      //console.log("step",step,1*step/(numberofcolors))
+      domain_of_colors.push(percentile(all_values_of_inside_heatmap,1*step/(numberofcolors)))
+    }
+
+    //ColorScale
+    var heatmap_colorScale = d3.scale.threshold() //
+      .domain(domain_of_colors)
+      .range(heatmap_colors);
+
+
+    //X axis
+    var xAxis = d3.svg.axis()
+                  .scale(xScale)
+                  .orient("bottom");
+
+    //Y axis
+    var yAxis = d3.svg.axis()
+                  .scale(yScale)
+                  .orient("left");
+
+    //Create svg object
+    var svg = d3.select("#heatmap1").append("svg")
+                                    .attr("width", width + margin.left + margin.right)
+                                    .attr("height", height + margin.top + margin.bottom);
+    var g_element = svg.append("g")
+                       .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+    //Reference http://bl.ocks.org/tjdecke/5558084
+
+    //Rectangles in the heatmap
+    g_element.selectAll(".heatmap_rectangles")
+            .data(data)
+            .enter()
+            .append("rect")
+            .attr("x",function(d){
+              return xScale(d.SpellType)
+            })
+            .attr("y",function(d){
+              return yScale(d.book)
+            })
+            .attr("width", width/8 )
+            .attr("height", height/7) //7rowsX8columns heatmap
+            .attr('fill',function(d){
+                return heatmap_colorScale(d.values)
+                })
+    //Reference http://bl.ocks.org/tjdecke/5558084
+
+    //X axis
+    g_element.append("g")
+            .attr("class", "axis")
+            .attr("transform", "translate(0," + (height + 17) +")")
+            .call(xAxis)
+            .selectAll("text") //Select X axis labels to rotate and reposition
+            .attr("style","text-anchor:end")
+            .attr("transform", "rotate(-90)")
+            .attr("y", -6)
+            .attr("x", 10)
+            .style("font-size", "16.5px")
+    //Reference https://bl.ocks.org/Bl3f/cdb5ad854b376765fa99
+
+    //Y axis
+    g_element.append("g")
+            .attr("class", "axis")
+            .call(yAxis)
+            .selectAll("text")
+            .attr("style","text-anchor:end")
+            .style("font-size", "16.5px")
+    //Reference https://bl.ocks.org/Bl3f/cdb5ad854b376765fa99
+
+    //X axis Title
+    g_element.append("text")
+             .attr("x", 450)
+             .attr("y", 460)
+             .style("font-size", "21px")
+             .style("font-weight","bold")
+             .text("Spell Type");
+
+    //Y axis Title
+    g_element.append("text")
+             .attr("x", -50)
+             .attr("y", -3/5*margin.top)
+             .style("font-size", "21px")
+             .style("font-weight","bold")
+             .text("Book");
+
+
+    // Add a legend for the color values.
+    var legend = g_element.selectAll(".legend")
+                          .data([0].concat(domain_of_colors), function(d) { return d; })
+                          .enter()
+                          .append("g")
+                          .attr("class", "legend")
+                          .attr("transform", function(d, i) { return "translate(" + (margin.right + i * 30) + "," + (12*margin.top ) + ")"; });
+    //http://bl.ocks.org/ganezasan/dfe585847d65d0742ca7d0d1913d50e1 + Q3
+
+
+    //Rectangles of Bottom Legend with Colors
+    // http://bl.ocks.org/ganezasan/dfe585847d65d0742ca7d0d1913d50e1
+    legend.append("rect")
+            .attr("width", 30)
+            .attr("height", 28)
+            .style("fill", function(d,i){return heatmap_colors[i];});
+
+    //Numbers below the bottom Legend
+    legend.append("text")
+            .attr("dx", "-0.3em")
+            .attr("dy", "3em")
+            .text(function(d){return Math.round(d);});
+
+    //Title of Bottom Element
+    g_element.append("text")
+              .attr("dx", "5.5em")
+              .attr("dy", "32.5em")
+              .style("font-size", "18px")
+              .style("font-weight","bold")
+              .text("No of Spells");
+
+
+  })
+}
+
+//Call function for default house Gryffindor when loading the page
+make_heatmap("Gryffindor");
+
+//Title of Heatmap
+d3.select('#header_tile')
+    .text("Visualizing Wizarding Houses and Spells")
+    .style("font-size", "27px")
+    .style("font-weight","bold")
+
+
+//Text before dropdown
+d3.select('#value_input')
+    .text("House  ")
+    .style("font-size", "23px")
+
+//Dropdown Reference http://bl.ocks.org/jfreels/6734823
+var input_data = ["Gryffindor", "Hufflepuff", "Ravenclaw", "Slytherin"];
+
+var select = d3.select('#value_input')
+               .append('select')
+               .attr('class','select')
+               .on('change',change)
+
+var options = select.selectAll('option')
+                    .data(input_data).enter()
+                    .append('option')
+                    .text(function (d) { return d; });
+//Reference http://bl.ocks.org/jfreels/6734823
+
+
+
+//Function to detect changes on dropdown
+function change() {
+  document.getElementById("heatmap1").innerHTML = ''; //https://stackoverflow.com/questions/3450593/how-do-i-clear-the-content-of-a-div-using-javascript
+  selectValue = d3.select('select').property('value');
+  make_heatmap(selectValue);//Reference http://bl.ocks.org/jfreels/6734823
+};
+
+
+//http://bl.ocks.org/mbostock/3202354
+</script>
+</body>
+</html>
+
+
