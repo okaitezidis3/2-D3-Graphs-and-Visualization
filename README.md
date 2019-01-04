@@ -4,3 +4,4 @@
 ## Q3 Customized scatter-plots with D3
 ## Q4 Heatmap and Select Box with D3
 ## Q5 Interactive Bar Chart with D3
+## Q6 Choropleth Map of County Data with D3
